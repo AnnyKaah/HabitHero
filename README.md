@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="./src/assets/hero-vs2.png="HabitHero Screenshot" width="800"/>
+  <img src="./src/assets/hero-vs2.png" alt="HabitHero Screenshot" width="800"/>
   <h1>HabitHero</h1>
   <p><strong>Transforme seus hábitos em uma aventura épica de RPG!</strong></p>
 
