@@ -1,24 +1,59 @@
-# Dependencies
-node_modules/
+# Arquivo .gitignore para o projeto HabitHero
+# Este arquivo especifica arquivos e pastas que o Git deve ignorar.
 
-# Build output
-dist/
-build/
+### Geral: Arquivos de Sistema e Editores ###
+# Arquivos de cache e metadados de sistemas operacionais
+.DS_Store
+Thumbs.db
 
-# Logs
+# Arquivos de log
+*.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
-pnpm-debug.log*
+lerna-debug.log*
 
-# Environment variables
+# Diretórios de configuração de editores de código populares
+.idea/
+.vscode/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+
+### Dependências e Builds ###
+# Ignora as pastas de dependências em qualquer lugar do projeto (frontend, backend)
+node_modules/
+
+# Ignora arquivos de lock de outros gerenciadores de pacotes,
+# já que o README indica o uso do npm (package-lock.json deve ser comitado).
+pnpm-lock.yaml
+yarn.lock
+
+# Arquivos de build e compilação (para TypeScript, Vite, etc.)
+# Isso se aplicará tanto ao 'dist' do backend quanto ao 'dist' do frontend.
+dist/
+build/
+
+# Cache do Vite
+.vite/
+
+# Arquivos de cache do TypeScript
+*.tsbuildinfo
+
+### Arquivos de Ambiente e Sensíveis ###
+# NUNCA comite arquivos de ambiente. Eles contêm senhas e chaves de API.
+# Comite apenas os arquivos de exemplo para guiar outros desenvolvedores.
 .env
+.env.*
+!.env.example
+
+# Arquivos de ambiente locais específicos
 .env.local
 .env.development.local
 .env.test.local
 .env.production.local
 
-# IDE and OS files
-.vscode/
-.idea/
-.DS_Store
+### Testes ###
+# Relatórios de cobertura de testes
+coverage/

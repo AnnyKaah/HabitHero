@@ -1,0 +1,7 @@
+# Ignora dependências locais, pois serão instaladas dentro do contêiner
+node_modules
+
+# Ignora arquivos de log e ambiente
+npm-debug.log
+.env
+dist
