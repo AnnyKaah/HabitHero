@@ -37,11 +37,11 @@ const PORT = process.env.SERVER_PORT || 5000;
 
 async function startServer() {
   try {
-    // 1. Autentica a conexão com o banco de dados
+    // 1. Authenticate the database connection
     await sequelize.authenticate();
-    console.log("✅ PostgreSQL conectado!");
+    console.log("✅ Database connected successfully!");
 
-    // 2. Sincroniza os modelos com o banco de dados.
+    // 2. Synchronize models with the database.
     // O { alter: true } é ótimo para desenvolvimento, pois ajusta as tabelas existentes.
     await sequelize.sync({ alter: true });
     console.log("🔄 Modelos sincronizados com o banco de dados.");

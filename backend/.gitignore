@@ -1,0 +1,8 @@
+# SQLite database
+dev.sqlite
+*.sqlite3
+*.sqlite
+*.db
+*.sqlite-journal
+*.sqlite-wal
+*.sqlite-shm
