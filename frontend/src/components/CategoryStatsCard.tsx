@@ -1,8 +1,8 @@
 import React from "react";
 import * as Icons from "lucide-react";
 import { motion } from "framer-motion";
-import { Habit } from "../pages/Dashboard"; // No changes needed here
-import HabitRow from "./HabitRow";
+import type { Habit } from "../types";
+import HabitRow from "../pages/HabitRow";
 
 export type CategorizedHabit = {
   title: string;

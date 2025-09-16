@@ -16,10 +16,9 @@ interface Quest {
 
 interface GamificationProps {
   habits: Habit[];
-  setHabits: React.Dispatch<React.SetStateAction<Habit[]>>;
   user: User;
-  setUser: React.Dispatch<React.SetStateAction<User | null>>;
-  completeHabitAndUpdateState: (id: number, date: string) => Promise<void>;
+  completingHabitId: number | null;
+  updateUserStats: (updates: Partial<User>) => void;
 }
 
 const bossStages = [
@@ -45,10 +44,8 @@ const bossStages = [
 
 export const useGamification = ({
   habits,
-  setHabits,
   user,
-  setUser,
-  completeHabitAndUpdateState,
+  updateUserStats,
 }: GamificationProps) => {
   // Estados de feedback de UI que o hook gerencia
   const [mascotIsJumping, setMascotIsJumping] = useState(false);
@@ -57,6 +54,48 @@ export const useGamification = ({
     string | number | null
   >(null);
   const [showLevelUp, setShowLevelUp] = useState(false);
+  const [dailyQuests, setDailyQuests] = useState<Quest[]>([]);
+  const [completionStreak, setCompletionStreak] = useState(0);
+  const [lastCompletedHabitIds, setLastCompletedHabitIds] = useState<number[]>(
+    []
+  );
+
+  // --- Lógica da Batalha de Chefe ---
+  const BOSS_MAX_HP = 100;
+  const [boss, setBoss] = useState(() => {
+    const savedStateJSON = localStorage.getItem("bossState");
+    if (savedStateJSON) {
+      const savedState = JSON.parse(savedStateJSON);
+      // Garante que o estado salvo tenha a propriedade 'index', caso contrário, reseta.
+      if (typeof savedState.index !== "undefined") {
+        return savedState;
+      }
+    }
+    // Estado inicial
+    const initialBoss = bossStages[0];
+    return {
+      name: initialBoss.name,
+      hp: BOSS_MAX_HP,
+      image: initialBoss.image,
+      index: 0, // Começa no primeiro chefe
+    };
+  });
+  const [isBossTakingDamage, setIsBossTakingDamage] = useState(false);
+  const [isBossDefeated, setIsBossDefeated] = useState(false);
+
+  // --- Lógica do Baú de Recompensas ---
+  const [chestProgress, setChestProgress] = useState(() => {
+    return parseInt(localStorage.getItem("chestProgress") || "0", 10);
+  });
+
+  // Persiste o estado do chefe
+  useEffect(() => {
+    localStorage.setItem("bossState", JSON.stringify(boss));
+  }, [boss]);
+
+  useEffect(() => {
+    localStorage.setItem("chestProgress", String(chestProgress));
+  }, [chestProgress]);
 
   // Função para exibir a notificação de conquista
   const showAchievementToast = (achievement: Achievement) => {
@@ -93,12 +132,8 @@ export const useGamification = ({
 
     // Optimistic UI update
     const originalAchievements = user.unlockedAchievementIds;
-    setUser((u) => {
-      if (!u) return null;
-      return {
-        ...u,
-        unlockedAchievementIds: [...u.unlockedAchievementIds, achievementId],
-      };
+    updateUserStats({
+      unlockedAchievementIds: [...user.unlockedAchievementIds, achievementId],
     });
     setTimeout(() => showAchievementToast(achievement), 500);
 
@@ -117,44 +152,9 @@ export const useGamification = ({
       console.error("Failed to save achievement:", error);
       toast.error("Falha ao salvar a conquista.");
       // Revert UI on failure
-      setUser((u) => {
-        if (!u) return null;
-        return { ...u, unlockedAchievementIds: originalAchievements };
-      });
+      updateUserStats({ unlockedAchievementIds: originalAchievements });
     }
   };
-
-  // --- Lógica da Batalha de Chefe ---
-  const BOSS_MAX_HP = 100;
-  const [boss, setBoss] = useState(() => {
-    const savedBoss = localStorage.getItem("bossState");
-    return savedBoss
-      ? JSON.parse(savedBoss)
-      : { name: "Procrastinação", hp: BOSS_MAX_HP, image: bossImage1 };
-  });
-  const [isBossTakingDamage, setIsBossTakingDamage] = useState(false);
-  const [isBossDefeated, setIsBossDefeated] = useState(false);
-
-  // Persiste o estado do chefe
-  useEffect(() => {
-    localStorage.setItem("bossState", JSON.stringify(boss));
-  }, [boss]);
-
-  // --- Lógica do Baú de Recompensas ---
-  const [chestProgress, setChestProgress] = useState(() => {
-    return parseInt(localStorage.getItem("chestProgress") || "0", 10);
-  });
-
-  useEffect(() => {
-    localStorage.setItem("chestProgress", String(chestProgress));
-  }, [chestProgress]);
-
-  // Estados internos de gamificação
-  const [completionStreak, setCompletionStreak] = useState(0);
-  const [lastCompletedHabitIds, setLastCompletedHabitIds] = useState<number[]>(
-    []
-  );
-  const [dailyQuests, setDailyQuests] = useState<Quest[]>([]);
 
   // Efeito para reiniciar as missões diárias
   useEffect(() => {
@@ -182,24 +182,6 @@ export const useGamification = ({
     // A dependência vazia [] garante que este efeito rode apenas uma vez na montagem do componente.
   }, []);
 
-  // Efeito para atualizar o chefe com base no nível do usuário
-  useEffect(() => {
-    if (!user) return;
-
-    const currentBossData = bossStages.find(
-      (stage) => user.level <= stage.levelThreshold
-    )!;
-
-    // Atualiza o chefe (nome e imagem) se o estágio mudou
-    if (boss.name !== currentBossData.name)
-      setBoss({
-        name: currentBossData.name,
-        hp: BOSS_MAX_HP,
-        image: currentBossData.image,
-      });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user.level]);
-
   // Efeito para verificar conquistas baseadas em estado
   useEffect(() => {
     if (!user || habits === undefined) return;
@@ -214,7 +196,29 @@ export const useGamification = ({
     if (habits.length >= 5) unlockAchievement(5);
 
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user.level, habits.length]);
+  }, [user, habits.length]); // Alterado de user.level para user
+
+  // Adiciona uma cláusula de guarda para evitar erros quando o usuário ainda não foi carregado.
+  // Se o usuário for nulo, o hook retorna um estado padrão e não executa o resto da lógica.
+  if (!user) {
+    return {
+      mascotIsJumping: false,
+      showConfetti: false,
+      setShowConfetti: () => {},
+      justCompletedHabitId: null,
+      showLevelUp: false,
+      completeHabit: async () => {},
+      dailyQuests: [],
+      completeDailyQuest: () => {},
+      chestProgress: 0,
+      CHEST_GOAL: 5,
+      openChest: () => ({ type: "XP", amount: 0 }),
+      boss: { name: "Procrastinação", hp: 100, image: bossImage1 },
+      BOSS_MAX_HP: 100,
+      isBossTakingDamage: false,
+      isBossDefeated: false,
+    };
+  }
 
   const playSound = (soundFile: string) => {
     const audio = new Audio(`/sounds/${soundFile}`);
@@ -223,25 +227,31 @@ export const useGamification = ({
 
   const handleBossDefeated = () => {
     setIsBossDefeated(true);
-    playSound("achievement.mp3");
 
     // Conquista específica do chefe
     if (boss.name === "Procrastinação") unlockAchievement(4);
 
     // Após a animação, dá a recompensa e o useEffect cuidará do próximo chefe
-    setTimeout(() => {
-      const defeatedBoss = bossStages.find((b) => b.name === boss.name);
-      if (defeatedBoss) {
-        const { xp, message } = defeatedBoss.reward;
-        setUser((u) => {
-          if (!u) return null;
-          return { ...u, xp: u.xp + xp };
-        });
-        toast.success(`🔥 ${boss.name} derrotado! +${xp} XP! ${message} 🔥`, {
-          duration: 6000,
-          icon: "🏆",
-        });
-      }
+    setTimeout(async () => {
+      const defeatedBoss = bossStages[boss.index];
+      const { xp, message } = defeatedBoss.reward;
+      updateUserStats({ xp: user.xp + xp });
+      toast.success(`🔥 ${boss.name} derrotado! +${xp} XP! ${message} 🔥`, {
+        duration: 6000,
+        icon: "🏆",
+      });
+
+      // Avança para o próximo chefe
+      const nextBossIndex = Math.min(boss.index + 1, bossStages.length - 1);
+      const nextBoss = bossStages[nextBossIndex];
+
+      setBoss({
+        name: nextBoss.name,
+        hp: BOSS_MAX_HP,
+        image: nextBoss.image,
+        index: nextBossIndex,
+      });
+
       setIsBossDefeated(false); // Reseta o estado da animação
     }, 1500); // Duração da animação de derrota
   };
@@ -256,10 +266,11 @@ export const useGamification = ({
     setTimeout(() => setJustCompletedHabitId(null), 2000);
   };
 
-  const handleHabitCompletion = async (id: number, date: string) => {
-    // Armazena o estado do hábito ANTES da atualização para comparar depois
-    const habitBeforeUpdate = habits.find((h) => h.id === id);
-
+  // Função centralizada para rodar todos os efeitos de gamificação após a conclusão de um hábito
+  const runGamificationEffects = (
+    updatedHabit: Habit,
+    habitBeforeUpdate: Habit | undefined
+  ) => {
     // --- Lógica da Batalha de Chefe ---
     const damage = 10; // Cada hábito causa 10 de dano
     const newHp = Math.max(0, boss.hp - damage);
@@ -279,14 +290,11 @@ export const useGamification = ({
       setChestProgress(newChestProgress);
     }
 
-    // Chama a função do context que já atualiza o estado e a API
-    await completeHabitAndUpdateState(id, date);
-    const updatedHabit = habits.find((h) => h.id === id);
-    // 4. Lógica de Combo
-    if (!lastCompletedHabitIds.includes(id)) {
+    // --- Lógica de Combo ---
+    if (!lastCompletedHabitIds.includes(updatedHabit.id)) {
       const newStreak = completionStreak + 1;
       setCompletionStreak(newStreak);
-      setLastCompletedHabitIds([...lastCompletedHabitIds, id]);
+      setLastCompletedHabitIds([...lastCompletedHabitIds, updatedHabit.id]);
 
       if (newStreak === 3) {
         toast.success("🔥 Combo de 3 missões! +20 XP Bônus!", { icon: "🔥" });
@@ -296,10 +304,9 @@ export const useGamification = ({
       }
     }
 
-    // 5. Lógica de Conquistas
+    // --- Lógica de Conquistas ---
     if (
       habitBeforeUpdate &&
-      updatedHabit &&
       updatedHabit.completedCount > habitBeforeUpdate.completedCount &&
       updatedHabit.completedCount === 1
     ) {
@@ -345,7 +352,7 @@ export const useGamification = ({
         const { user: updatedUser } = await response.json();
 
         // Sincroniza o estado do usuário com a resposta do backend
-        setUser(updatedUser);
+        updateUserStats(updatedUser);
 
         // Verifica se houve level up
         if (updatedUser.level > user.level) {
@@ -372,13 +379,9 @@ export const useGamification = ({
     playSound("achievement.mp3");
     toast.success(`Você ganhou ${rewardAmount} XP do baú!`, { icon: "💎" });
 
-    setUser((u) => {
-      if (!u) return null;
-      return {
-        ...u,
-        xp: u.xp + rewardAmount,
-        totalXp: u.totalXp + rewardAmount,
-      };
+    updateUserStats({
+      xp: user.xp + rewardAmount,
+      totalXp: user.totalXp + rewardAmount,
     });
     setChestProgress(0); // Reinicia o progresso
 
@@ -391,7 +394,7 @@ export const useGamification = ({
     setShowConfetti,
     justCompletedHabitId,
     showLevelUp,
-    completeHabit: handleHabitCompletion, // Renomeado para evitar confusão
+    runGamificationEffects,
     dailyQuests,
     completeDailyQuest,
     chestProgress,

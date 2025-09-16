@@ -1,6 +1,8 @@
 // frontend/src/pages/Admin.tsx
 import { useState, useEffect } from "react";
 import { toast } from "react-hot-toast"; // No changes needed here
+import { PageLayout } from "../components/PageLayout";
+import { apiService } from "./apiService"; // Importando o serviço de API centralizado
 
 interface Quest {
   id: number;
@@ -12,6 +14,8 @@ export default function AdminPage() {
   const [quests, setQuests] = useState<Quest[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [editingQuest, setEditingQuest] = useState<Quest | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [deletingQuestId, setDeletingQuestId] = useState<number | null>(null);
 
   useEffect(() => {
     fetchQuests();
@@ -20,13 +24,7 @@ export default function AdminPage() {
   const fetchQuests = async () => {
     try {
       setIsLoading(true);
-      const token = localStorage.getItem("authToken");
-      const response = await fetch("http://localhost:5000/api/admin/quests", {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-      const data = await response.json();
+      const data = await apiService<Quest[]>("/admin/quests");
       setQuests(data);
     } catch (error) {
       toast.error("Falha ao carregar missões.");
@@ -38,56 +36,42 @@ export default function AdminPage() {
   const handleSave = async (questData: Omit<Quest, "id"> & { id?: number }) => {
     const { id, title, description } = questData;
     const method = id ? "PUT" : "POST";
-    const url = id
-      ? `http://localhost:5000/api/admin/quests/${id}`
-      : "http://localhost:5000/api/admin/quests";
+    const url = id ? `/admin/quests/${id}` : "/admin/quests";
 
-    const token = localStorage.getItem("authToken");
-
+    setIsSubmitting(true);
     try {
-      const response = await fetch(url, {
+      await apiService(url, {
         method,
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
         body: JSON.stringify({ title, description }),
       });
-
-      if (!response.ok) {
-        throw new Error(`Falha ao ${id ? "atualizar" : "criar"} missão.`);
-      }
 
       toast.success(`Missão ${id ? "atualizada" : "criada"} com sucesso!`);
       setEditingQuest(null);
       fetchQuests(); // Recarrega a lista
     } catch (error: any) {
       toast.error(error.message);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   const handleDelete = async (id: number) => {
     if (window.confirm("Tem certeza que deseja deletar esta missão?")) {
-      const token = localStorage.getItem("authToken");
       try {
-        const response = await fetch(
-          `http://localhost:5000/api/admin/quests/${id}`,
-          {
-            method: "DELETE",
-            headers: { Authorization: `Bearer ${token}` },
-          }
-        );
-        if (!response.ok) throw new Error("Falha ao deletar missão.");
+        await apiService(`/admin/quests/${id}`, { method: "DELETE" });
+        setDeletingQuestId(id);
         toast.success("Missão deletada com sucesso!");
         fetchQuests();
       } catch (error: any) {
         toast.error(error.message);
+      } finally {
+        setDeletingQuestId(null);
       }
     }
   };
 
   return (
-    <div className="p-8 text-slate-200">
+    <PageLayout className="p-8 text-slate-200 justify-start">
       <h1 className="text-3xl font-bold text-brand-cyan mb-6">
         Painel de Administração - Missões Diárias
       </h1>
@@ -96,6 +80,7 @@ export default function AdminPage() {
         <QuestForm
           quest={editingQuest}
           onSave={handleSave}
+          isSubmitting={isSubmitting}
           onCancel={() => setEditingQuest(null)}
         />
       ) : (
@@ -112,16 +97,23 @@ export default function AdminPage() {
             quests={quests}
             onEdit={setEditingQuest}
             onDelete={handleDelete}
+            deletingQuestId={deletingQuestId}
             isLoading={isLoading}
           />
         </>
       )}
-    </div>
+    </PageLayout>
   );
 }
 
 // Componente da Lista de Missões
-const QuestList = ({ quests, onEdit, onDelete, isLoading }: any) => {
+const QuestList = ({
+  quests,
+  onEdit,
+  onDelete,
+  deletingQuestId,
+  isLoading,
+}: any) => {
   if (isLoading) return <p>Carregando missões...</p>;
   return (
     <div className="space-y-4">
@@ -143,9 +135,10 @@ const QuestList = ({ quests, onEdit, onDelete, isLoading }: any) => {
             </button>
             <button
               onClick={() => onDelete(quest.id)}
-              className="bg-red-500 text-white py-1 px-3 rounded"
+              disabled={deletingQuestId === quest.id}
+              className="bg-red-500 text-white py-1 px-3 rounded disabled:bg-red-500/50 disabled:cursor-wait"
             >
-              Deletar
+              {deletingQuestId === quest.id ? "Deletando..." : "Deletar"}
             </button>
           </div>
         </div>
@@ -155,7 +148,7 @@ const QuestList = ({ quests, onEdit, onDelete, isLoading }: any) => {
 };
 
 // Componente do Formulário de Missão
-const QuestForm = ({ quest, onSave, onCancel }: any) => {
+const QuestForm = ({ quest, onSave, onCancel, isSubmitting }: any) => {
   const [title, setTitle] = useState(quest?.title || "");
   const [description, setDescription] = useState(quest?.description || "");
 
@@ -200,9 +193,10 @@ const QuestForm = ({ quest, onSave, onCancel }: any) => {
       <div className="flex gap-4">
         <button
           type="submit"
-          className="bg-green-600 text-white font-bold py-2 px-4 rounded hover:bg-green-700"
+          disabled={isSubmitting}
+          className="bg-green-600 text-white font-bold py-2 px-4 rounded hover:bg-green-700 disabled:bg-green-600/50 disabled:cursor-wait"
         >
-          Salvar
+          {isSubmitting ? "Salvando..." : "Salvar"}
         </button>
         <button
           type="button"

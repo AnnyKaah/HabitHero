@@ -1,43 +1,7 @@
 import { AnimatePresence, motion } from "framer-motion";
 import React, { useState } from "react";
-import {
-  X,
-  Brain,
-  HeartPulse,
-  Paintbrush,
-  Briefcase,
-  Smile,
-  Users,
-  PiggyBank,
-} from "lucide-react";
-
-export const habitCategories = [
-  { id: "dev_pessoal", name: "Desenvolvimento Pessoal", icon: Brain },
-  { id: "saude_fitness", name: "Saúde & Fitness", icon: HeartPulse },
-  {
-    id: "criatividade_hobbies",
-    name: "Criatividade & Hobbies",
-    icon: Paintbrush,
-  },
-  {
-    id: "carreira_produtividade",
-    name: "Carreira & Produtividade",
-    icon: Briefcase,
-  },
-  { id: "bem_estar_mindfulness", name: "Bem-estar & Mindfulness", icon: Smile },
-  {
-    id: "relacionamentos_social",
-    name: "Relacionamentos & Social",
-    icon: Users,
-  },
-  {
-    id: "financas_organizacao",
-    name: "Finanças & Organização",
-    icon: PiggyBank,
-  },
-];
-
-export type HabitCategory = (typeof habitCategories)[number]["id"];
+import { X } from "lucide-react";
+import { habitCategories, HabitCategoryId } from "../utils/habitCategories";
 
 interface AddHabitModalProps {
   isOpen: boolean;
@@ -45,7 +9,7 @@ interface AddHabitModalProps {
   onAddHabit: (
     name: string,
     description: string,
-    category: HabitCategory,
+    category: HabitCategoryId,
     duration: number
   ) => Promise<void>;
 }
@@ -57,7 +21,7 @@ export default function AddHabitModal({
 }: AddHabitModalProps) {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
-  const [category, setCategory] = useState<HabitCategory>("dev_pessoal");
+  const [category, setCategory] = useState<HabitCategoryId>("dev_pessoal");
   const [duration, setDuration] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -146,7 +110,9 @@ export default function AddHabitModal({
                 <select
                   id="habit-category"
                   value={category}
-                  onChange={(e) => setCategory(e.target.value as HabitCategory)}
+                  onChange={(e) =>
+                    setCategory(e.target.value as HabitCategoryId)
+                  }
                   className="w-full p-3 bg-slate-700 border border-slate-600 rounded-md focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none transition text-white"
                 >
                   {habitCategories.map((cat) => (

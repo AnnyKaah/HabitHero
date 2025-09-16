@@ -1,4 +1,4 @@
-import { Habit, User } from "../pages/Dashboard"; // No changes needed here
+import type { Habit, User } from "./types";
 
 const API_BASE_URL = "http://localhost:5000/api";
 
@@ -45,6 +45,23 @@ async function apiFetch(endpoint: string, options: RequestInit = {}) {
 
 // Funções específicas para cada endpoint
 
+export const login = (credentials: {
+  email: string;
+  password: string;
+}): Promise<{ token: string }> => {
+  return apiFetch("/auth/login", {
+    method: "POST",
+    body: JSON.stringify(credentials),
+  });
+};
+
+export const register = (userData: any): Promise<{ token: string }> => {
+  return apiFetch("/auth/register", {
+    method: "POST",
+    body: JSON.stringify(userData),
+  });
+};
+
 export const getInitialData = (): Promise<[User, Habit[]]> => {
   return Promise.all([apiFetch("/auth/me"), apiFetch("/habits")]);
 };
@@ -53,9 +70,22 @@ export const addHabit = (habitData: {
   name: string;
   description: string;
   category: string;
+  duration: number;
 }): Promise<Habit> => {
   return apiFetch("/habits", {
     method: "POST",
+    body: JSON.stringify(habitData),
+  });
+};
+
+export const editHabit = (
+  id: number,
+  habitData: Partial<
+    Pick<Habit, "name" | "description" | "category" | "duration">
+  >
+): Promise<Habit> => {
+  return apiFetch(`/habits/${id}`, {
+    method: "PATCH",
     body: JSON.stringify(habitData),
   });
 };
@@ -70,5 +100,58 @@ export const updateUser = (
   return apiFetch("/auth/me", {
     method: "PATCH",
     body: JSON.stringify(userData),
+  });
+};
+
+export const completeHabit = (
+  id: number,
+  date: string
+): Promise<{
+  user: User;
+  habit: Habit;
+  missionCompleted: boolean;
+  bonusXp: number;
+  xpGained: number;
+}> => {
+  return apiFetch(`/habits/${id}/complete`, {
+    method: "PATCH",
+    body: JSON.stringify({ date }),
+  });
+};
+
+export const changePassword = (passwordData: {
+  oldPassword: string;
+  newPassword: string;
+}): Promise<{ message: string }> => {
+  return apiFetch("/auth/change-password", {
+    method: "PATCH",
+    body: JSON.stringify(passwordData),
+  });
+};
+
+export const changeEmail = (emailData: {
+  newEmail: string;
+  password: string;
+}): Promise<{ message: string }> => {
+  return apiFetch("/auth/change-email", {
+    method: "PATCH",
+    body: JSON.stringify(emailData),
+  });
+};
+
+export const forgotPassword = (email: string): Promise<{ message: string }> => {
+  return apiFetch("/auth/forgot-password", {
+    method: "POST",
+    body: JSON.stringify({ email }),
+  });
+};
+
+export const resetPassword = (passwordData: {
+  token: string;
+  password: string;
+}): Promise<{ message: string }> => {
+  return apiFetch(`/auth/reset-password/${passwordData.token}`, {
+    method: "POST",
+    body: JSON.stringify({ password: passwordData.password }),
   });
 };

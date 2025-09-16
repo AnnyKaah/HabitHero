@@ -3,6 +3,8 @@ import { Link, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { toast } from "react-hot-toast";
 import { LogIn, User, Lock } from "lucide-react";
+import { login } from "../api";
+import { PageLayout } from "../components/PageLayout";
 
 interface LoginPageProps {
   setIsAuthenticated: (isAuthenticated: boolean) => void;
@@ -16,25 +18,21 @@ export default function LoginPage({ setIsAuthenticated }: LoginPageProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!email.trim() || !password.trim()) {
+      toast.error("Por favor, preencha o e-mail e a senha.");
+      return;
+    }
+
     setIsLoading(true);
 
     try {
-      const response = await fetch("http://localhost:5000/api/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
-      });
+      const data = await login({ email, password });
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || "Falha no login");
-      }
-
-      localStorage.setItem("authToken", data.token);
-      setIsAuthenticated(true);
+      localStorage.setItem("authToken", data.token); // Salva o token
+      setIsAuthenticated(true); // Atualiza o estado no App.tsx
       toast.success("Bem-vindo de volta, Herói!");
-      navigate("/");
+      navigate("/"); // Redireciona para o painel principal
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : "Ocorreu um erro.";
@@ -45,13 +43,8 @@ export default function LoginPage({ setIsAuthenticated }: LoginPageProps) {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4">
-      <motion.div
-        initial={{ opacity: 0, y: -20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
-        className="w-full max-w-md"
-      >
+    <PageLayout>
+      <motion.div className="w-full max-w-md">
         <div className="bg-brand-slate/50 border border-brand-light-slate rounded-2xl shadow-2xl p-8 backdrop-blur-lg">
           <div className="text-center mb-8">
             <h1 className="font-display text-4xl font-bold text-brand-purple mb-2">
@@ -111,6 +104,6 @@ export default function LoginPage({ setIsAuthenticated }: LoginPageProps) {
           </div>
         </div>
       </motion.div>
-    </div>
+    </PageLayout>
   );
 }

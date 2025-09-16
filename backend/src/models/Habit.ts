@@ -23,6 +23,7 @@ class Habit extends Model<
   declare completedCount: CreationOptional<number>;
   declare category: string;
   declare type: CreationOptional<"binary" | "fractional">;
+  declare status: CreationOptional<"active" | "completed">;
   declare dailyGoal: CreationOptional<number>;
   declare dailyProgress: CreationOptional<number>;
   declare unit: CreationOptional<string | null>;
@@ -79,6 +80,11 @@ Habit.init(
     type: {
       type: DataTypes.ENUM("binary", "fractional"),
       defaultValue: "binary",
+      allowNull: false,
+    },
+    status: {
+      type: DataTypes.ENUM("active", "completed"),
+      defaultValue: "active",
       allowNull: false,
     },
     dailyGoal: {

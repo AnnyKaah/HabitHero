@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { toast } from "react-hot-toast";
 import { User, Mail, Lock, UserPlus } from "lucide-react";
+import { apiService } from "./apiService";
 
 interface RegisterPageProps {
   setIsAuthenticated: (isAuthenticated: boolean) => void;
@@ -22,17 +23,10 @@ export default function RegisterPage({
     setIsLoading(true);
 
     try {
-      const response = await fetch("http://localhost:5000/api/auth/register", {
+      const data = await apiService<{ token: string }>("/auth/register", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username, email, password }),
       });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || "Falha ao registrar");
-      }
 
       localStorage.setItem("authToken", data.token);
       setIsAuthenticated(true);
@@ -48,12 +42,61 @@ export default function RegisterPage({
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4">
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.5 }}
+      className="relative flex flex-col items-center justify-center min-h-screen text-center p-4 overflow-hidden bg-[#1e0a3c]"
+    >
+      {/* Fundo gradiente animado */}
       <motion.div
-        initial={{ opacity: 0, y: -20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
-        className="w-full max-w-md"
+        className="absolute inset-0 bg-gradient-to-b from-[#2c024c] via-[#5b21b6]/50 to-[#1e0a3c] z-0"
+        animate={{ backgroundPosition: ["0% 0%", "100% 100%"] }}
+        transition={{ duration: 60, repeat: Infinity, ease: "linear" }}
+      />
+
+      {/* Nuvens flutuantes */}
+      {[...Array(6)].map((_, i) => (
+        <motion.div
+          key={i}
+          className="absolute w-48 h-24 bg-white/10 rounded-full blur-3xl"
+          style={{
+            top: `${10 + i * 10}%`,
+            left: `${Math.random() * 90}%`,
+          }}
+          animate={{ x: [0, 20, 0], y: [0, 10, 0] }}
+          transition={{
+            duration: 20 + i * 2,
+            repeat: Infinity,
+            ease: "easeInOut",
+            delay: i,
+          }}
+        />
+      ))}
+
+      {/* Estrelas flutuantes */}
+      {[...Array(50)].map((_, i) => (
+        <motion.div
+          key={i}
+          className="absolute w-[2px] h-[2px] bg-white rounded-full"
+          style={{
+            top: `${Math.random() * 100}%`,
+            left: `${Math.random() * 100}%`,
+          }}
+          animate={{ y: [0, 5, 0], x: [0, 5, 0], opacity: [0.2, 1, 0.2] }}
+          transition={{
+            duration: 3 + Math.random() * 4,
+            repeat: Infinity,
+            ease: "easeInOut",
+            delay: Math.random() * 2,
+          }}
+        />
+      ))}
+
+      <motion.div
+        // Adicionado z-10 para ficar sobre o fundo
+        className="w-full max-w-md relative z-10"
       >
         <div className="bg-brand-slate/50 border border-brand-light-slate rounded-2xl shadow-2xl p-8 backdrop-blur-lg">
           <div className="text-center mb-8">
@@ -125,6 +168,6 @@ export default function RegisterPage({
           </div>
         </div>
       </motion.div>
-    </div>
+    </motion.div>
   );
 }

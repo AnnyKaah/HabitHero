@@ -1,17 +1,14 @@
 import { motion, useMotionValue, useTransform, animate } from "framer-motion";
-import { Trash2, Calendar, Circle, CheckCircle } from "lucide-react";
+import { Trash2, Calendar, CheckCircle, Tag } from "lucide-react";
 import type { Habit } from "../types";
 import { useEffect } from "react";
 import { format } from "date-fns/format";
-import { addDays } from "date-fns/addDays";
-import { isToday } from "date-fns/isToday";
-import { isPast } from "date-fns/isPast";
-import { ptBR } from "date-fns/locale";
+import { habitCategories } from "../utils/habitCategories";
 
 interface HabitCardProps {
   habit: Habit;
   // A função onComplete agora recebe a data da sub-missão
-  onComplete: (id: number, date: string) => void;
+  onComplete: (id: number) => void;
   onDelete: (id: number) => void;
   isGlowing?: boolean;
   completingHabitId: number | null;
@@ -24,10 +21,14 @@ export default function HabitCard({
   isGlowing,
   completingHabitId,
 }: HabitCardProps) {
-  // Gera a lista de dias para a missão
-  const missionDays = Array.from({ length: habit.duration }, (_, i) => {
-    return format(addDays(new Date(habit.createdAt), i), "yyyy-MM-dd");
-  });
+  // Verifica se o hábito já foi completado hoje
+  const categoryInfo = habitCategories.find((c) => c.id === habit.category);
+  const categoryName = categoryInfo?.name || "Geral";
+
+  const todayStr = format(new Date(), "yyyy-MM-dd");
+  const wasCompletedToday = habit.logs?.some(
+    (log) => log.date === todayStr && log.completed
+  );
 
   // Calcula o progresso da missão
   const completedDays = habit.logs?.filter((l) => l.completed).length || 0;
@@ -63,10 +64,16 @@ export default function HabitCard({
         <h3 className="text-xl font-bold font-display text-brand-cyan">
           {habit.name}
         </h3>
-        <p className="text-slate-400 text-sm mt-1 mb-4">
-          <Calendar size={14} className="inline mr-1" />
-          Missão de {habit.duration} dia(s)
-        </p>
+        <div className="flex items-center gap-4 text-slate-400 text-xs mt-2 mb-4">
+          <div className="flex items-center gap-1">
+            <Tag size={12} />
+            <span>{categoryName}</span>
+          </div>
+          <div className="flex items-center gap-1">
+            <Calendar size={12} />
+            <span>{habit.duration} dia(s)</span>
+          </div>
+        </div>
       </div>
 
       {/* Barra de Progresso da Missão */}
@@ -79,44 +86,33 @@ export default function HabitCard({
         </div>
         <div className="w-full bg-brand-dark rounded-full h-2.5 border border-brand-light-slate/50">
           <motion.div
-            className="bg-gradient-to-r from-brand-cyan to-brand-purple h-full rounded-full"
+            className={
+              progressPercentage > 0
+                ? "h-full rounded-full bg-gradient-to-r from-green-400 to-brand-cyan"
+                : "h-full rounded-full bg-slate-700"
+            }
             animate={{ width: `${progressPercentage}%` }}
             transition={{ duration: 0.8, ease: "easeInOut" }}
           />
         </div>
       </div>
 
-      {/* Lista de sub-missões diárias */}
-      <div className="mt-4 space-y-2">
-        {missionDays.map((day) => {
-          const log = habit.logs?.find((l) => l.date === day);
-          const isCompleted = log?.completed || false;
-          const isDayToday = isToday(new Date(day));
-          const isDayPast = isPast(new Date(day)) && !isDayToday;
-          const isDisabled = isCompleted || (!isDayToday && !isDayPast);
-
-          return (
-            <button
-              key={day}
-              onClick={() => onComplete(habit.id, day)}
-              disabled={isDisabled}
-              className="w-full flex items-center justify-between p-2 rounded-md transition-colors bg-brand-dark/50 hover:bg-brand-light-slate/20 disabled:bg-slate-800/50 disabled:cursor-not-allowed"
-            >
-              <span
-                className={`font-semibold ${
-                  isCompleted ? "text-green-400 line-through" : "text-slate-300"
-                } ${isDisabled && !isCompleted ? "text-slate-600" : ""}`}
-              >
-                {format(new Date(day), "eeee, dd/MM", { locale: ptBR })}
-              </span>
-              {isCompleted ? (
-                <CheckCircle size={20} className="text-green-400" />
-              ) : (
-                <Circle size={20} className="text-slate-500" />
-              )}
-            </button>
-          );
-        })}
+      {/* Botão único para completar a missão hoje */}
+      <div className="mt-4">
+        <motion.button
+          onClick={() => onComplete(habit.id)}
+          disabled={wasCompletedToday || completingHabitId === habit.id}
+          className="w-full flex items-center justify-center gap-2 p-3 rounded-lg font-bold transition-all duration-300 disabled:cursor-not-allowed bg-green-600/20 text-green-300 hover:bg-green-600/40 disabled:bg-slate-800 disabled:text-slate-500"
+          whileHover={{ scale: wasCompletedToday ? 1 : 1.05 }}
+          whileTap={{ scale: wasCompletedToday ? 1 : 0.95 }}
+        >
+          <CheckCircle size={20} />
+          {completingHabitId === habit.id
+            ? "Registrando..."
+            : wasCompletedToday
+            ? "Concluído Hoje"
+            : "Completar Hoje"}
+        </motion.button>
       </div>
 
       {/* Botão de deletar permanece o mesmo */}

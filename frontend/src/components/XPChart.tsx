@@ -61,7 +61,10 @@ export default function XPChart({ habits }: XPChartProps) {
   };
 
   return (
-    <div className="bg-slate-800 p-6 rounded-xl shadow-lg border border-slate-700">
+    <div className="bg-brand-slate/50 p-4 rounded-xl border border-brand-light-slate">
+      <h3 className="font-display text-lg font-bold text-brand-cyan mb-4 text-center">
+        XP por Missão
+      </h3>
       <Bar data={data} options={options} />
     </div>
   );

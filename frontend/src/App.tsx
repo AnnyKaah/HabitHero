@@ -13,6 +13,12 @@ import Dashboard from "./pages/Dashboard";
 import LoginPage from "./pages/Login";
 import RegisterPage from "./pages/Register";
 import ProtectedRoute from "./components/ProtectedRoute";
+import MainLayout from "./components/MainLayout";
+import ProfilePage from "./pages/ProfilePage";
+import SettingsPage from "./pages/SettingsPage";
+import SocialPage from "./pages/SocialPage";
+import ForgotPasswordPage from "./pages/ForgotPasswordPage";
+import ResetPasswordPage from "./pages/ResetPasswordPage";
 import HeroSection from "./pages/HeroSection";
 
 function App() {
@@ -27,15 +33,11 @@ function App() {
   };
 
   return (
-    <div className="bg-brand-dark text-slate-300 min-h-screen font-sans bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-brand-slate to-brand-dark overflow-x-hidden">
+    <>
       <Toaster position="top-center" />
       <Router>
         <Routes>
           {/* Rotas Públicas */}
-          <Route
-            path="/welcome"
-            element={!isAuthenticated ? <HeroSection /> : <Navigate to="/" />}
-          />
           <Route
             path="/login"
             element={<LoginPage setIsAuthenticated={setIsAuthenticated} />}
@@ -44,25 +46,43 @@ function App() {
             path="/register"
             element={<RegisterPage setIsAuthenticated={setIsAuthenticated} />}
           />
-
-          {/* Rota Raiz e Protegida com o UserProvider */}
+          <Route path="/forgot-password" element={<ForgotPasswordPage />} />
           <Route
-            path="/*" // Captura a rota raiz e qualquer outra rota protegida
+            path="/reset-password/:token"
+            element={<ResetPasswordPage />}
+          />
+
+          {/* Rotas Protegidas dentro do Layout */}
+          <Route
+            path="/*"
+            element={
+              <ProtectedRoute isAuthenticated={isAuthenticated}>
+                <UserProvider>
+                  <MainLayout onLogout={handleLogout} />
+                </UserProvider>
+              </ProtectedRoute>
+            }
+          >
+            <Route path="dashboard" element={<Dashboard />} />
+            <Route path="profile" element={<ProfilePage />} />
+            <Route path="social" element={<SocialPage />} />
+            <Route path="settings" element={<SettingsPage />} />
+          </Route>
+
+          {/* Rota Raiz - Ponto de entrada principal */}
+          <Route
+            path="/"
             element={
               isAuthenticated ? (
-                <ProtectedRoute isAuthenticated={isAuthenticated}>
-                  <UserProvider>
-                    <Dashboard onLogout={handleLogout} />
-                  </UserProvider>
-                </ProtectedRoute>
+                <Navigate to="/dashboard" replace />
               ) : (
-                <Navigate to="/welcome" replace />
+                <HeroSection />
               )
             }
           />
         </Routes>
       </Router>
-    </div>
+    </>
   );
 }
 

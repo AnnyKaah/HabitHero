@@ -1,8 +1,9 @@
 import React, {
   createContext,
-  useState,
   useContext,
+  useRef,
   useEffect,
+  useReducer,
   ReactNode,
 } from "react";
 import { toast } from "react-hot-toast";
@@ -10,16 +11,118 @@ import type { Habit, User } from "../types";
 import {
   getInitialData,
   addHabit as apiAddHabit,
+  editHabit as apiEditHabit,
   deleteHabit as apiDeleteHabit,
-  updateUser as apiUpdateUser,
   completeHabit as apiCompleteHabit,
-} from "./api";
+  updateUser as apiUpdateUser,
+} from "../api";
 
-interface UserContextType {
+interface State {
   user: User | null;
   habits: Habit[];
   isLoading: boolean;
+  completingHabitId: number | null; // Adicionamos o estado de carregamento aqui
   error: string | null;
+}
+
+type Action =
+  | { type: "FETCH_START" }
+  | { type: "FETCH_SUCCESS"; payload: { user: User; habits: Habit[] } }
+  | { type: "FETCH_FAILURE"; payload: string }
+  | { type: "ADD_HABIT_SUCCESS"; payload: Habit }
+  | {
+      type: "EDIT_HABIT_OPTIMISTIC";
+      payload: { id: number; updates: Partial<Habit> };
+    }
+  | { type: "REVERT_HABITS"; payload: Habit[] }
+  | { type: "DELETE_HABIT_OPTIMISTIC"; payload: number }
+  | { type: "START_COMPLETE_HABIT"; payload: number } // Nova ação para iniciar
+  | { type: "COMPLETE_HABIT_FAILURE" } // Nova ação para falha
+  | { type: "COMPLETE_HABIT_SUCCESS"; payload: { user: User; habit: Habit } }
+  | {
+      type: "REVERT_USER_AND_HABITS";
+      payload: { user: User | null; habits: Habit[] };
+    }
+  | { type: "UPDATE_USER_OPTIMISTIC"; payload: Partial<User> }
+  | { type: "REVERT_USER"; payload: User | null };
+
+const initialState: State = {
+  user: null,
+  habits: [],
+  isLoading: true,
+  completingHabitId: null,
+  error: null,
+};
+
+const reducer = (state: State, action: Action): State => {
+  switch (action.type) {
+    case "FETCH_START":
+      return { ...state, isLoading: true, error: null };
+    case "FETCH_SUCCESS":
+      return {
+        ...state,
+        isLoading: false,
+        user: action.payload.user,
+        habits: action.payload.habits,
+      };
+    case "FETCH_FAILURE":
+      return { ...state, isLoading: false, error: action.payload };
+    case "ADD_HABIT_SUCCESS":
+      return { ...state, habits: [...state.habits, action.payload] };
+    case "EDIT_HABIT_OPTIMISTIC":
+      return {
+        ...state,
+        habits: state.habits.map((h) =>
+          h.id === action.payload.id ? { ...h, ...action.payload.updates } : h
+        ),
+      };
+    case "REVERT_HABITS":
+      return { ...state, habits: action.payload };
+    case "DELETE_HABIT_OPTIMISTIC":
+      return {
+        ...state,
+        habits: state.habits.filter((h) => h.id !== action.payload),
+      };
+    case "START_COMPLETE_HABIT":
+      return {
+        ...state,
+        completingHabitId: action.payload,
+      };
+    case "COMPLETE_HABIT_SUCCESS":
+      return {
+        ...state,
+        user: action.payload.user,
+        habits: state.habits.map((h) =>
+          h.id === action.payload.habit.id ? action.payload.habit : h
+        ),
+        completingHabitId: null, // Limpa o estado de carregamento no sucesso
+      };
+    case "COMPLETE_HABIT_FAILURE":
+      return {
+        ...state,
+        completingHabitId: null, // Limpa o estado de carregamento na falha
+      };
+    case "REVERT_USER_AND_HABITS":
+      return {
+        ...state,
+        user: action.payload.user,
+        habits: action.payload.habits,
+      };
+    // Note: não limpamos o completingHabitId aqui para que a UI possa decidir o que fazer
+    case "UPDATE_USER_OPTIMISTIC":
+      return {
+        ...state,
+        user: state.user ? { ...state.user, ...action.payload } : null,
+      };
+    case "REVERT_USER":
+      return { ...state, user: action.payload };
+    default:
+      return state;
+  }
+};
+
+interface UserContextType {
+  state: State;
   fetchData: () => Promise<void>;
   addHabit: (
     name: string,
@@ -27,42 +130,60 @@ interface UserContextType {
     category: string,
     duration: number
   ) => Promise<void>;
+  editHabit: (
+    id: number,
+    updates: Partial<
+      Pick<Habit, "name" | "description" | "category" | "duration">
+    >
+  ) => Promise<void>;
   deleteHabit: (id: number) => Promise<void>;
   updateUsername: (newUsername: string) => Promise<void>;
   updateAvatar: (newAvatarId: string) => Promise<void>;
-  completeHabit: (id: number, date: string) => Promise<void>;
-  setUser: React.Dispatch<React.SetStateAction<User | null>>;
-  setHabits: React.Dispatch<React.SetStateAction<Habit[]>>;
+  updateUserStats: (updates: Partial<User>) => void;
+  completeHabit: (
+    id: number,
+    runGamificationLogic: (
+      updatedHabit: Habit,
+      habitBeforeUpdate: Habit | undefined
+    ) => void
+  ) => Promise<void>;
 }
 
 const UserContext = createContext<UserContextType | undefined>(undefined);
 
 export const UserProvider = ({ children }: { children: ReactNode }) => {
-  const [user, setUser] = useState<User | null>(null);
-  const [habits, setHabits] = useState<Habit[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [state, dispatch] = useReducer(reducer, initialState);
+  // Usamos uma ref para garantir que apenas uma requisição de conclusão seja feita por vez.
+  // Isso é mais seguro que depender apenas do estado.
+  const isCompletingRef = useRef(false);
 
   const fetchData = async () => {
-    setIsLoading(true);
-    setError(null);
+    dispatch({ type: "FETCH_START" });
     try {
+      // Fazendo duas requisições separadas, que são mais comuns em APIs REST.
       const [userData, habitsData] = await getInitialData();
-      setUser(userData);
-      setHabits(habitsData);
+      dispatch({
+        type: "FETCH_SUCCESS",
+        payload: { user: userData, habits: habitsData },
+      });
     } catch (err) {
       const errorMessage =
         err instanceof Error ? err.message : "Erro ao carregar dados.";
-      setError(errorMessage);
+      dispatch({ type: "FETCH_FAILURE", payload: errorMessage });
       toast.error(errorMessage);
-    } finally {
-      setIsLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchData();
-  }, []);
+    // Busca os dados se houver um token e se o usuário ainda não foi carregado.
+    // Isso evita buscas repetidas desnecessárias, mas garante a busca inicial.
+    const token = localStorage.getItem("authToken");
+    if (token && !state.user) {
+      fetchData();
+    }
+    // A dependência em state.user garante que, se o usuário fizer logout (state.user se torna null),
+    // e depois login novamente, o contexto pode re-buscar os dados se necessário.
+  }, [state.user]);
 
   const addHabit = async (
     name: string,
@@ -77,97 +198,168 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
         category,
         duration,
       });
-      setHabits((prev) => [...prev, newHabit]);
+
+      dispatch({ type: "ADD_HABIT_SUCCESS", payload: newHabit });
       toast.success("Hábito adicionado com sucesso!");
     } catch (error) {
       toast.error("Falha ao adicionar o hábito.");
     }
   };
 
+  const editHabit = async (
+    id: number,
+    updates: Partial<
+      Pick<Habit, "name" | "description" | "category" | "duration">
+    >
+  ) => {
+    const originalHabits = [...state.habits];
+    // Atualização otimista
+    dispatch({ type: "EDIT_HABIT_OPTIMISTIC", payload: { id, updates } });
+
+    try {
+      await apiEditHabit(id, updates);
+      toast.success("Hábito atualizado com sucesso!");
+    } catch (error) {
+      toast.error("Falha ao atualizar o hábito.");
+      // Reverte em caso de erro
+      dispatch({ type: "REVERT_HABITS", payload: originalHabits });
+    }
+  };
+
   const deleteHabit = async (id: number) => {
-    const originalHabits = habits;
-    setHabits(habits.filter((h) => h.id !== id));
+    const originalHabits = state.habits;
+    dispatch({ type: "DELETE_HABIT_OPTIMISTIC", payload: id });
     try {
       await apiDeleteHabit(id);
       toast.success("Hábito deletado!");
     } catch (err) {
       toast.error("Falha ao deletar o hábito.");
-      setHabits(originalHabits);
+      dispatch({ type: "REVERT_HABITS", payload: originalHabits });
     }
   };
 
-  const completeHabit = async (id: number, date: string): Promise<void> => {
-    const originalHabits = [...habits];
-    const originalUser = user ? { ...user } : null;
+  const completeHabit = async (
+    id: number,
+    runGamificationLogic: (
+      updatedHabit: Habit,
+      habitBeforeUpdate: Habit | undefined
+    ) => void
+  ): Promise<void> => {
+    // Trava síncrona para impedir qualquer condição de corrida
+    if (isCompletingRef.current) {
+      return;
+    }
+    isCompletingRef.current = true;
+
+    const originalHabits = [...state.habits];
+    const originalUser = state.user ? { ...state.user } : null;
+    const habitBeforeUpdate = originalHabits.find((h) => h.id === id);
+
+    const todayStr = new Date().toISOString().split("T")[0];
+    // Despacha a ação para a UI reagir IMEDIATAMENTE
+    dispatch({ type: "START_COMPLETE_HABIT", payload: id });
 
     try {
       const {
         user: updatedUser,
         habit: updatedHabit,
-        missionCompleted,
-        bonusXp,
-        xpGained,
-      } = await apiCompleteHabit(id, date);
-      setUser(updatedUser);
-      setHabits((prev) => prev.map((h) => (h.id === id ? updatedHabit : h)));
-      if (missionCompleted) {
+        ...rest
+      } = await apiCompleteHabit(id, todayStr);
+
+      // Sincroniza o estado local com a resposta definitiva do servidor
+      dispatch({
+        type: "COMPLETE_HABIT_SUCCESS",
+        payload: { user: updatedUser, habit: updatedHabit },
+      });
+
+      // Executa a lógica de gamificação APÓS o sucesso da API
+      runGamificationLogic(updatedHabit, habitBeforeUpdate);
+
+      const habitName = updatedHabit.name || "Missão";
+
+      if (rest.missionCompleted) {
         toast.success(
-          `Missão '${updatedHabit.name}' concluída! +${bonusXp} XP Bônus!`,
+          `Missão '${habitName}' concluída! +${rest.bonusXp} XP Bônus!`,
           { icon: "🎉" }
         );
       } else {
-        toast.success(`'${updatedHabit.name}' atualizada! +${xpGained} XP`);
+        toast.success(`'${habitName}' atualizada! +${rest.xpGained} XP`);
       }
     } catch (error) {
-      toast.error("Falha ao completar a missão.");
-      setHabits(originalHabits);
-      setUser(originalUser as User | null);
+      // Reverte o estado em caso de falha na API
+      const errorMessage =
+        error instanceof Error ? error.message : "Falha ao completar a missão.";
+
+      // Verifica se o erro é sobre o hábito já ter sido concluído
+      if (errorMessage.includes("já foi concluído")) {
+        toast.error("Missão já concluída hoje.");
+      } else {
+        toast.error(errorMessage);
+      }
+
+      dispatch({
+        type: "REVERT_USER_AND_HABITS",
+        payload: { user: originalUser, habits: originalHabits },
+      });
+      dispatch({ type: "COMPLETE_HABIT_FAILURE" });
+    } finally {
+      // Libera a trava independentemente do resultado
+      isCompletingRef.current = false;
     }
   };
 
   const updateUsername = async (newUsername: string) => {
-    if (!user) return;
-    const originalUser = { ...user };
-    setUser((prev) => (prev ? { ...prev, username: newUsername } : null));
+    if (!state.user) return;
+    const originalUser = { ...state.user };
+    dispatch({
+      type: "UPDATE_USER_OPTIMISTIC",
+      payload: { username: newUsername },
+    });
     try {
       await apiUpdateUser({ username: newUsername });
       toast.success("Nome de usuário atualizado!");
     } catch (error) {
-      setUser(originalUser);
+      dispatch({ type: "REVERT_USER", payload: originalUser });
       toast.error("Falha ao atualizar o nome de usuário.");
     }
   };
 
   const updateAvatar = async (newAvatarId: string) => {
-    if (!user) return;
-    const originalUser = user;
+    if (!state.user) return;
+    const originalUser = state.user;
 
-    // Cria um novo objeto de usuário com o avatar atualizado
-    const updatedUser = { ...user, avatarId: newAvatarId };
-    setUser(updatedUser); // Atualização otimista
+    dispatch({
+      type: "UPDATE_USER_OPTIMISTIC",
+      payload: { avatarId: newAvatarId },
+    });
 
     try {
       await apiUpdateUser({ avatarId: newAvatarId });
       toast.success("Avatar atualizado!");
     } catch (error) {
-      setUser(originalUser); // Reverte em caso de erro
+      dispatch({ type: "REVERT_USER", payload: originalUser }); // Reverte em caso de erro
       toast.error("Falha ao atualizar o avatar.");
     }
   };
 
+  const updateUserStats = (updates: Partial<User>) => {
+    if (!state.user) return;
+    dispatch({
+      type: "UPDATE_USER_OPTIMISTIC",
+      payload: updates,
+    });
+  };
+
   const value = {
-    user,
-    habits,
-    isLoading,
-    error,
+    state,
     fetchData,
     addHabit,
+    editHabit,
     deleteHabit,
     updateUsername,
     updateAvatar,
+    updateUserStats,
     completeHabit,
-    setUser,
-    setHabits,
   };
 
   return <UserContext.Provider value={value}>{children}</UserContext.Provider>;

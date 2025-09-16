@@ -1,10 +1,9 @@
 import { useState, useMemo } from "react";
 import { useUser } from "../pages/UserContext";
 import { useGamification } from "./useGamification";
-import { useMissionStreak } from "../pages/useMissionStreak";
-import { habitCategories as dynamicCategories } from "../components/AddHabitModal";
 import type { Habit } from "../types";
-import * as Icons from "lucide-react";
+import type * as Icons from "lucide-react";
+import { useMissionStreak } from "../pages/useMissionStreak";
 
 export type HabitCategory = {
   title: string;
@@ -22,21 +21,16 @@ export const useDashboardState = () => {
   const [expandedQuestId, setExpandedQuestId] = useState<
     string | number | null
   >(null);
-  const [completingHabitId, setCompletingHabitId] = useState<number | null>(
-    null
-  );
   const [currentView, setCurrentView] = useState<
-    "dashboard" | "profile" | "social"
+    "dashboard" | "profile" | "social" | "settings"
   >("dashboard");
 
   const {
-    habits,
+    state: { habits, user, completingHabitId }, // Pegamos o completingHabitId diretamente do contexto
     addHabit,
     deleteHabit,
-    setUser,
-    setHabits,
-    user,
-    completeHabit,
+    completeHabit, // Usaremos a função do contexto diretamente
+    updateUserStats,
   } = useUser();
 
   // Garantimos que o usuário não é nulo neste ponto.
@@ -44,20 +38,35 @@ export const useDashboardState = () => {
 
   const gamification = useGamification({
     habits,
-    setHabits,
     user: nonNullUser,
-    setUser: setUser,
-    completeHabitAndUpdateState: completeHabit,
+    completingHabitId,
+    updateUserStats,
   });
 
-  const categorizedHabits: HabitCategory[] = useMemo(
+  // Transforma a lista de hábitos em uma lista de datas de conclusão para o hook de streak.
+  const completionDates = useMemo(() => {
+    if (!habits) return [];
+    return habits
+      .flatMap((habit) => habit.logs || []) // Pega todos os logs de todos os hábitos
+      .filter((log) => log.completed) // Filtra apenas os concluídos
+      .map((log) => new Date(log.date)); // Converte as strings de data para objetos Date
+  }, [habits]);
+
+  const missionStreak = useMissionStreak(completionDates);
+
+  // Filtra apenas os hábitos que ainda não foram totalmente concluídos
+  const activeHabits = useMemo(
     () =>
-      dynamicCategories.map((cat) => ({
-        title: cat.name,
-        icon: cat.icon.displayName as keyof typeof Icons,
-        habits: habits.filter((habit: Habit) => habit.category === cat.id),
-      })),
+      habits.filter(
+        (habit) =>
+          (habit.logs?.filter((l) => l.completed).length || 0) < habit.duration
+      ),
     [habits]
+  );
+
+  const categorizedHabits: HabitCategory[] = useMemo(
+    () => [{ title: "Missões Ativas", icon: "Swords", habits: activeHabits }],
+    [activeHabits]
   );
 
   const handleOpenChest = () => {
@@ -66,26 +75,10 @@ export const useDashboardState = () => {
     setIsChestModalOpen(true);
   };
 
-  const handleCompleteHabit = async (id: number, date: string) => {
-    setCompletingHabitId(id);
-    try {
-      await gamification.completeHabit(id, date);
-    } finally {
-      setCompletingHabitId(null);
-    }
-  };
-
-  // Simulação de histórico de conclusões.
-  const [completionHistory] = useState<Date[]>([
-    new Date("2024-07-28T10:00:00Z"),
-    new Date("2024-07-29T10:00:00Z"),
-    new Date("2024-07-30T10:00:00Z"),
-    new Date("2024-08-01T10:00:00Z"),
-  ]);
-
-  const missionStreak = useMissionStreak(completionHistory);
-
   return {
+    user,
+    habits,
+    categorizedHabits,
     isModalOpen,
     setIsModalOpen,
     isChestModalOpen,
@@ -94,16 +87,13 @@ export const useDashboardState = () => {
     expandedQuestId,
     setExpandedQuestId,
     completingHabitId,
-    currentView,
-    setCurrentView,
-    habits,
+    gamification,
+    missionStreak,
     addHabit,
     deleteHabit,
-    user: nonNullUser,
-    gamification,
-    categorizedHabits,
+    completeHabit, // Passa a função do contexto diretamente
     handleOpenChest,
-    handleCompleteHabit,
-    missionStreak,
+    currentView,
+    setCurrentView,
   };
 };

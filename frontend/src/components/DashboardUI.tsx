@@ -1,12 +1,10 @@
 import React, { useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Confetti from "react-confetti";
-import HabitCard from "./HabitCard";
-import { Plus, LogOut, User as UserIcon, Users } from "lucide-react";
+import { Plus } from "lucide-react";
 
 import AddHabitModal from "./AddHabitModal";
 import ChestOpeningModal from "./ChestOpeningModal";
-import XPProgressBar from "./XPProgressBar";
 import RoleplayIntro from "./RoleplayIntro";
 import DailyQuestCard from "./DailyQuestCard";
 import InstructionsMap from "./InstructionsMap";
@@ -15,13 +13,11 @@ import CategorySection from "./CategorySection";
 import BossBattle from "./BossBattle";
 import RewardChest from "./RewardChest";
 import AchievementsSection from "./AchievementsSection";
+import HabitCard from "./HabitCard";
 import Mascot from "./Mascot";
 import JourneyMap from "./JourneyMap";
-
-import { HeaderStats } from "./HeaderStats";
 import type { Habit, User } from "../types";
-import type { HabitCategory } from "../hooks/useDashboardState";
-import { achievementsData } from "../pages/achievementsData";
+import type { HabitCategory } from "../pages/Dashboard";
 
 interface DashboardUIProps {
   user: User;
@@ -34,7 +30,6 @@ interface DashboardUIProps {
   completingHabitId: number | null;
   gamification: any; // Simplificado para o exemplo, idealmente tipar o retorno do useGamification
   missionStreak: number;
-  onLogout: () => void;
   onSetIsModalOpen: (isOpen: boolean) => void;
   onSetIsChestModalOpen: (isOpen: boolean) => void;
   onSetExpandedQuestId: (id: string | number | null) => void;
@@ -44,10 +39,15 @@ interface DashboardUIProps {
     category: string,
     duration: number
   ) => Promise<void>;
-  onCompleteHabit: (id: number, date: string) => Promise<void>;
+  onCompleteHabit: (
+    id: number,
+    runGamificationLogic: (
+      updatedHabit: Habit,
+      habitBeforeUpdate: Habit | undefined
+    ) => void
+  ) => Promise<void>;
   onDeleteHabit: (id: number) => Promise<void>;
   onOpenChest: () => void;
-  onSetCurrentView: (view: "dashboard" | "profile" | "social") => void;
 }
 
 export const DashboardUI: React.FC<DashboardUIProps> = ({
@@ -61,7 +61,6 @@ export const DashboardUI: React.FC<DashboardUIProps> = ({
   completingHabitId,
   gamification,
   missionStreak,
-  onLogout,
   onSetIsModalOpen,
   onSetIsChestModalOpen,
   onSetExpandedQuestId,
@@ -69,18 +68,11 @@ export const DashboardUI: React.FC<DashboardUIProps> = ({
   onCompleteHabit,
   onDeleteHabit,
   onOpenChest,
-  onSetCurrentView,
 }) => {
   const constraintsRef = useRef(null);
 
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      transition={{ duration: 0.5 }}
-      ref={constraintsRef}
-    >
+    <>
       {gamification.showConfetti && (
         <Confetti
           recycle={false}
@@ -104,56 +96,10 @@ export const DashboardUI: React.FC<DashboardUIProps> = ({
         reward={chestReward}
       />
 
-      <header className="flex justify-between items-center bg-slate-900/80 backdrop-blur-md p-4 md:p-6 rounded-xl border border-slate-700 shadow-lg mb-6 mx-4 md:mx-8">
-        <h1 className="font-display text-3xl md:text-4xl font-bold text-brand-purple tracking-wide flex items-center gap-2">
-          Painel do Herói
-        </h1>
-        <HeaderStats
-          dailyProgress={{
-            completed: gamification.dailyQuests.filter((q: any) => q.completed)
-              .length,
-            total: gamification.dailyQuests.length,
-          }}
-          achievements={{
-            unlocked: user.unlockedAchievementIds.length,
-            total: achievementsData.length,
-          }}
-          streak={missionStreak}
-        />
-        <div className="flex items-center gap-6">
-          <XPProgressBar
-            level={user.level}
-            xp={user.xp}
-            xpToNextLevel={user.xpToNextLevel}
-          />
-          <motion.button
-            onClick={() => onSetCurrentView("profile")}
-            className="text-slate-300 hover:text-brand-cyan transition flex items-center gap-1"
-            whileHover={{ scale: 1.1 }}
-            whileTap={{ scale: 0.9 }}
-          >
-            <UserIcon size={20} /> Perfil
-          </motion.button>
-          <motion.button
-            onClick={() => onSetCurrentView("social")}
-            className="text-slate-300 hover:text-brand-cyan transition flex items-center gap-1"
-            whileHover={{ scale: 1.1 }}
-            whileTap={{ scale: 0.9 }}
-          >
-            <Users size={20} /> Social
-          </motion.button>
-          <motion.button
-            onClick={onLogout}
-            className="text-slate-300 hover:text-red-400 transition flex items-center gap-1"
-            whileHover={{ scale: 1.1 }}
-            whileTap={{ scale: 0.9 }}
-          >
-            <LogOut size={20} /> Sair
-          </motion.button>
-        </div>
-      </header>
-
-      <main className="p-4 md:p-8 grid grid-cols-12 gap-8">
+      <div
+        className="w-full max-w-screen-2xl p-4 md:p-8 grid grid-cols-12 gap-8"
+        ref={constraintsRef}
+      >
         <div className="col-span-12 lg:col-span-8 space-y-8">
           <RoleplayIntro />
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -194,18 +140,26 @@ export const DashboardUI: React.FC<DashboardUIProps> = ({
                   <div key={cat.title} className="space-y-6">
                     <CategorySection category={cat} />
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                      {cat.habits.map((habit) => (
-                        <HabitCard
-                          key={habit.id}
-                          habit={habit}
-                          onComplete={onCompleteHabit}
-                          onDelete={onDeleteHabit}
-                          isGlowing={
-                            habit.id === gamification.justCompletedHabitId
-                          }
-                          completingHabitId={completingHabitId}
-                        />
-                      ))}
+                      <AnimatePresence>
+                        {cat.habits.map((habit: Habit) => (
+                          <HabitCard
+                            key={habit.id}
+                            habit={habit}
+                            onComplete={(habitId) =>
+                              // Passamos a lógica de gamificação como um callback
+                              onCompleteHabit(
+                                habitId, // O ID do hábito a ser completado
+                                gamification.runGamificationEffects // A função de callback
+                              )
+                            }
+                            onDelete={onDeleteHabit}
+                            isGlowing={
+                              habit.id === gamification.justCompletedHabitId
+                            }
+                            completingHabitId={completingHabitId}
+                          />
+                        ))}
+                      </AnimatePresence>
                     </div>
                   </div>
                 ))}
@@ -238,11 +192,11 @@ export const DashboardUI: React.FC<DashboardUIProps> = ({
           </div>
           <AchievementsSection unlockedIds={user.unlockedAchievementIds} />
         </aside>
-      </main>
+      </div>
 
       <AnimatePresence>
         {!isChestModalOpen && !isModalOpen && (
-          <motion.div
+          <motion.div // O mascote precisa ficar fora do grid principal para poder ser arrastado livremente
             className="fixed bottom-40 left-1/2 -translate-x-1/2 z-50"
             drag
             dragConstraints={constraintsRef}
@@ -261,9 +215,9 @@ export const DashboardUI: React.FC<DashboardUIProps> = ({
         )}
       </AnimatePresence>
 
-      <footer className="w-full p-4 md:p-8 mt-8">
+      <footer className="w-full max-w-screen-2xl p-4 md:p-8 mt-8">
         <JourneyMap currentLevel={user.level} />
       </footer>
-    </motion.div>
+    </>
   );
 };

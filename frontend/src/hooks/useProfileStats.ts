@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import type { Habit } from "../types";
-import { habitCategories as dynamicCategories } from "../components/AddHabitModal";
+import { habitCategories as dynamicCategories } from "../utils/habitCategories";
 
 export const useProfileStats = (habits: Habit[]) => {
   const stats = useMemo(() => {
@@ -11,8 +11,8 @@ export const useProfileStats = (habits: Habit[]) => {
         favoriteCategoryName: "N/A",
         categorizedHabits: dynamicCategories.map((cat) => ({
           title: cat.name,
+          icon: cat.icon,
           habits: [],
-          icon: "Activity" as const,
         })),
       };
     }
@@ -44,7 +44,7 @@ export const useProfileStats = (habits: Habit[]) => {
 
     const categorizedHabits = dynamicCategories.map((cat) => ({
       title: cat.name,
-      icon: "Activity" as const, // Mantendo o ícone placeholder
+      icon: cat.icon, // Usando o ícone correto da categoria
       habits: habits.filter((h) => h.category === cat.id),
     }));
 

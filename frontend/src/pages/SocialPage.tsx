@@ -1,14 +1,9 @@
 import React, { useState } from "react";
-import { motion } from "framer-motion";
-import { ArrowLeft, Users, BarChart2, UserPlus } from "lucide-react";
+import { Users, BarChart2, UserPlus } from "lucide-react";
 import { useUser } from "./UserContext";
 import RankingTab from "../components/RankingTab";
 import FriendsTab from "../components/FriendsTab";
 import RequestsTab from "../components/RequestsTab";
-
-interface SocialPageProps {
-  onBack: () => void;
-}
 
 const mockFriends = [
   {
@@ -46,12 +41,14 @@ const mockRequests = [
 
 type Tab = "ranking" | "friends" | "requests";
 
-export default function SocialPage({ onBack }: SocialPageProps) {
-  const { user } = useUser();
+export default function SocialPage() {
+  const { state } = useUser();
+  const { user } = state;
   const [activeTab, setActiveTab] = useState<Tab>("ranking");
 
+  // Garante que o componente só renderize quando o usuário estiver carregado.
   if (!user) {
-    return null; // ou um spinner
+    return null; // Ou um componente de carregamento (spinner)
   }
 
   const tabs: { id: Tab; label: string; icon: React.ElementType }[] = [
@@ -74,24 +71,10 @@ export default function SocialPage({ onBack }: SocialPageProps) {
   };
 
   return (
-    <motion.div
-      initial={{ opacity: 0, x: 100 }}
-      animate={{ opacity: 1, x: 0 }}
-      exit={{ opacity: 0, x: -100 }}
-      className="p-4 md:p-8 bg-slate-900 min-h-screen text-white"
-    >
-      <header className="flex items-center justify-between mb-8">
-        <button
-          onClick={onBack}
-          className="flex items-center gap-2 text-slate-300 hover:text-brand-purple transition-colors"
-        >
-          <ArrowLeft size={20} />
-          Voltar ao Painel
-        </button>
-        <h1 className="text-3xl md:text-4xl font-bold text-brand-cyan">
-          Comunidade
-        </h1>
-      </header>
+    <div className="w-full max-w-screen-lg">
+      <h1 className="text-3xl md:text-4xl font-bold text-brand-cyan mb-8">
+        Comunidade
+      </h1>
 
       <div className="flex border-b border-brand-light-slate mb-6">
         {tabs.map((tab) => (
@@ -116,6 +99,6 @@ export default function SocialPage({ onBack }: SocialPageProps) {
       </div>
 
       <div>{renderContent()}</div>
-    </motion.div>
+    </div>
   );
 }

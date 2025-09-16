@@ -1,10 +1,12 @@
 import { useState } from "react";
-import { useUser } from "../pages/UserContext";
 import { useProfileStats } from "./useProfileStats";
 import { avatarImages, avatarIds } from "../utils/avatars";
+import { useProfile } from "./useProfile";
+import { useHabits } from "./useHabits";
 
 export const useProfilePage = () => {
-  const { user, habits, updateUsername, updateAvatar } = useUser();
+  const { user, updateUsername, updateAvatar } = useProfile();
+  const { habits } = useHabits();
 
   // Este hook deve ser usado apenas onde o usuário já foi verificado.
   if (!user) {

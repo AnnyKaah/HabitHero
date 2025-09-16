@@ -19,6 +19,8 @@ class User extends Model<InferAttributes<User>, InferCreationAttributes<User>> {
   declare unlockedAchievementIds: CreationOptional<number[]>;
   declare avatarId: CreationOptional<string>;
   declare role: CreationOptional<"user" | "admin">;
+  declare passwordResetToken: CreationOptional<string | null>;
+  declare passwordResetExpires: CreationOptional<Date | null>;
 }
 
 User.init(
@@ -58,6 +60,14 @@ User.init(
       type: DataTypes.ENUM("user", "admin"),
       allowNull: false,
       defaultValue: "user",
+    },
+    passwordResetToken: {
+      type: DataTypes.STRING,
+      allowNull: true,
+    },
+    passwordResetExpires: {
+      type: DataTypes.DATE,
+      allowNull: true,
     },
   },
   {

@@ -8,29 +8,36 @@ interface HabitRowProps {
 }
 
 export default function HabitRow({ habit }: HabitRowProps) {
-  // A barra de progresso do hábito pode ser baseada no XP para o próximo nível.
-  // Supondo que xpToNextLevel = level * 50, como no useGamification.
-  const xpToNextLevel = habit.level * 50;
+  // Lógica de progresso baseada nos dias completados, para consistência com o HabitCard.
+  const completedDays = habit.logs?.filter((l) => l.completed).length || 0;
   const progressPercentage =
-    xpToNextLevel > 0 ? (habit.xp / xpToNextLevel) * 100 : 0;
+    habit.duration > 0 ? (completedDays / habit.duration) * 100 : 0;
 
   return (
     <motion.div
-      className="group relative flex items-center justify-between p-2 rounded-lg hover:bg-brand-light-slate/10 transition-colors"
+      className="group relative grid grid-cols-3 items-center gap-4 p-2 rounded-lg hover:bg-brand-light-slate/10 transition-colors"
       whileHover={{ scale: 1.02 }}
       layout
     >
-      <span className="font-semibold text-slate-300">{habit.name}</span>
-      <div className="flex items-center gap-4">
+      {/* Coluna 1: Nome do Hábito */}
+      <span className="col-span-1 font-semibold text-slate-300 truncate">
+        {habit.name}
+      </span>
+      {/* Coluna 2 e 3: Progresso e Nível */}
+      <div className="col-span-2 flex items-center justify-end gap-4">
         {/* Barra de Progresso do Hábito */}
         <div
-          className="w-24 bg-brand-dark rounded-full h-2 border border-brand-light-slate/30"
-          title={`${habit.xp}/${xpToNextLevel} XP`}
+          className="w-full max-w-24 bg-brand-dark rounded-full h-2 border border-brand-light-slate/30"
+          title={`${completedDays} / ${habit.duration} dias completados`}
         >
           <motion.div
-            className="bg-gradient-to-r from-brand-pink to-brand-purple h-full rounded-full"
-            initial={{ width: 0 }}
-            animate={{ width: `${progressPercentage}%` }}
+            className={`h-full rounded-full origin-left ${
+              progressPercentage >= 100
+                ? "bg-green-500" // Cor de conclusão
+                : "bg-gradient-to-r from-brand-pink to-brand-purple" // Cor de progresso
+            }`}
+            initial={{ scaleX: 0 }}
+            animate={{ scaleX: progressPercentage / 100 }}
             transition={{ duration: 0.5, ease: "easeOut" }}
           />
         </div>

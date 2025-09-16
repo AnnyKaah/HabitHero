@@ -2,6 +2,7 @@ import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import { useState } from "react"; // No changes needed here
 import { Loader2 } from "lucide-react";
+import { PageLayout } from "../components/PageLayout";
 
 export default function HeroSection() {
   const navigate = useNavigate();
@@ -13,58 +14,7 @@ export default function HeroSection() {
   };
 
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      transition={{ duration: 0.5 }}
-      className="relative flex flex-col items-center justify-center min-h-screen text-center p-4 overflow-hidden bg-[#1e0a3c]"
-    >
-      {/* Fundo gradiente animado */}
-      <motion.div
-        className="absolute inset-0 bg-gradient-to-b from-[#2c024c] via-[#5b21b6]/50 to-[#1e0a3c] z-0"
-        animate={{ backgroundPosition: ["0% 0%", "100% 100%"] }}
-        transition={{ duration: 60, repeat: Infinity, ease: "linear" }}
-      />
-
-      {/* Nuvens flutuantes */}
-      {[...Array(6)].map((_, i) => (
-        <motion.div
-          key={i}
-          className="absolute w-48 h-24 bg-white/10 rounded-full blur-3xl"
-          style={{
-            top: `${10 + i * 10}%`,
-            left: `${Math.random() * 90}%`,
-          }}
-          animate={{ x: [0, 20, 0], y: [0, 10, 0] }}
-          transition={{
-            duration: 20 + i * 2,
-            repeat: Infinity,
-            ease: "easeInOut",
-            delay: i,
-          }}
-        />
-      ))}
-
-      {/* Estrelas flutuantes */}
-      {[...Array(50)].map((_, i) => (
-        <motion.div
-          key={i}
-          className="absolute w-[2px] h-[2px] bg-white rounded-full"
-          style={{
-            top: `${Math.random() * 100}%`,
-            left: `${Math.random() * 100}%`,
-          }}
-          animate={{ y: [0, 5, 0], x: [0, 5, 0], opacity: [0.2, 1, 0.2] }}
-          transition={{
-            duration: 3 + Math.random() * 4,
-            repeat: Infinity,
-            ease: "easeInOut",
-            delay: Math.random() * 2,
-          }}
-        />
-      ))}
-
+    <PageLayout className="text-center">
       {/* Castelo SVG flutuante com janelas piscando */}
       <motion.div
         initial={{ opacity: 0, y: 50 }}
@@ -249,22 +199,6 @@ export default function HeroSection() {
         ))}
       </motion.button>
 
-      {/* Partículas mágicas subindo no fundo */}
-      {[...Array(20)].map((_, i) => (
-        <motion.div
-          key={i}
-          className="absolute w-2 h-2 bg-white rounded-full opacity-70"
-          style={{ left: `${Math.random() * 100}%`, bottom: "0%" }}
-          animate={{ y: [-50 - Math.random() * 50] }}
-          transition={{
-            duration: 6 + Math.random() * 4,
-            repeat: Infinity,
-            ease: "linear",
-            delay: Math.random() * 3,
-          }}
-        />
-      ))}
-
       {/* Glow do texto */}
       <style>
         {`
@@ -277,6 +211,6 @@ export default function HeroSection() {
           }
         `}
       </style>
-    </motion.div>
+    </PageLayout>
   );
 }

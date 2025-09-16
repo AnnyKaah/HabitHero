@@ -14,7 +14,7 @@ class HabitLog extends Model<
 > {
   declare id: CreationOptional<number>;
   declare habitId: number;
-  declare date: Date;
+  declare date: string;
   declare completed: CreationOptional<boolean>;
 }
 
