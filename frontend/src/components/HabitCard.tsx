@@ -2,7 +2,6 @@ import { motion, useMotionValue, useTransform, animate } from "framer-motion";
 import { Trash2, Calendar, CheckCircle, Tag } from "lucide-react";
 import type { Habit } from "../types";
 import { useEffect } from "react";
-import { format } from "date-fns/format";
 import { habitCategories } from "../utils/habitCategories";
 
 interface HabitCardProps {
@@ -25,7 +24,7 @@ export default function HabitCard({
   const categoryInfo = habitCategories.find((c) => c.id === habit.category);
   const categoryName = categoryInfo?.name || "Geral";
 
-  const todayStr = format(new Date(), "yyyy-MM-dd");
+  const todayStr = new Date().toISOString().split("T")[0];
   const wasCompletedToday = habit.logs?.some(
     (log) => log.date === todayStr && log.completed
   );

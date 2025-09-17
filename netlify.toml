@@ -1,0 +1,19 @@
+# Configuração para o deploy do frontend no Netlify
+[build]
+  # Comando para construir o site. Netlify irá rodar `npm install` automaticamente.
+  command = "npm run build"
+
+  # Diretório que contém o site construído (após rodar o comando acima).
+  # Este caminho é relativo ao `base` directory.
+  publish = "build/"
+
+  # Diretório base do projeto frontend.
+  # Netlify irá executar o `command` a partir daqui.
+  base = "frontend/"
+
+# Regra de reescrita (rewrite) para Single Page Applications (SPA) como o React.
+# Isso garante que a navegação no lado do cliente funcione corretamente.
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
