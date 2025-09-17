@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { toast } from "react-hot-toast";
 import { useUser } from "../pages/UserContext";
 import { useGamification } from "./useGamification";
 import type { Habit } from "../types";
@@ -75,6 +76,54 @@ export const useDashboardState = () => {
     setIsChestModalOpen(true);
   };
 
+  /**
+   * Envolve a função `addHabit` do contexto com notificações de toast.
+   */
+  const handleAddHabit: typeof addHabit = (habitData) => {
+    return toast.promise(
+      // @ts-ignore - Spreading arguments to match the context's function signature
+      addHabit(...Object.values(habitData)),
+      {
+        loading: "Criando nova missão...",
+        success: "Missão criada com sucesso!",
+        error: "Não foi possível criar a missão.",
+      }
+    );
+  };
+
+  /**
+   * Envolve a função `deleteHabit` do contexto com notificações de toast.
+   */
+  const handleDeleteHabit: typeof deleteHabit = (id) => {
+    return toast.promise(deleteHabit(id), {
+      loading: "Deletando missão...",
+      success: "Missão deletada.",
+      error: "Não foi possível deletar a missão.",
+    });
+  };
+
+  /**
+   * Envolve a função `completeHabit` com uma notificação de sucesso.
+   * Como a UI é otimista, o estado é atualizado instantaneamente.
+   * O toast confirma que a alteração foi salva no servidor.
+   */
+  const handleCompleteHabit: typeof completeHabit = (id) => {
+    // Passa o ID e a função de gamificação para a função do contexto.
+    // Fornece uma função vazia como fallback para garantir que o callback nunca seja undefined.
+    const promise = completeHabit(
+      id,
+      gamification.runGamificationEffects || (() => {})
+    );
+
+    // Envolve a promise com o toast.
+    toast.promise(promise, {
+      loading: "Registrando progresso...", // Mostrado brevemente enquanto a API responde.
+      success: "Missão registrada com sucesso!",
+      error: "Falha ao salvar. A missão foi revertida.",
+    });
+    return promise;
+  };
+
   return {
     user,
     habits,
@@ -89,9 +138,9 @@ export const useDashboardState = () => {
     completingHabitId,
     gamification,
     missionStreak,
-    addHabit,
-    deleteHabit,
-    completeHabit, // Passa a função do contexto diretamente
+    addHabit: handleAddHabit, // Expõe a nova função com toast
+    deleteHabit: handleDeleteHabit, // Expõe a nova função com toast
+    completeHabit: handleCompleteHabit, // Expõe a nova função com toast
     handleOpenChest,
     currentView,
     setCurrentView,

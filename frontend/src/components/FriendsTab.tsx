@@ -4,7 +4,6 @@ import { Send, Trash2 } from "lucide-react";
 import SendBoostModal from "./SendBoostModal";
 import { getAvatarUrl } from "../utils/avatar";
 import ImageWithSkeleton from "./ImageWithSkeleton";
-
 // Create a more specific type for the friend list, as it doesn't need all User properties.
 interface Friend {
   id: string;

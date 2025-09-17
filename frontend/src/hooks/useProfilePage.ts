@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { toast } from "react-hot-toast";
 import { useProfileStats } from "./useProfileStats";
 import { avatarImages, avatarIds } from "../utils/avatars";
 import { useProfile } from "./useProfile";
@@ -24,7 +25,11 @@ export const useProfilePage = () => {
 
   const handleSelectAvatar = async (avatarId: string) => {
     setIsSubmitting(true);
-    await updateAvatar(avatarId);
+    await toast.promise(updateAvatar(avatarId), {
+      loading: "Atualizando avatar...",
+      success: "Avatar atualizado!",
+      error: "Erro ao atualizar o avatar.",
+    });
     setIsSubmitting(false);
     setIsAvatarModalOpen(false);
   };
@@ -34,7 +39,11 @@ export const useProfilePage = () => {
   const handleSaveUsername = async () => {
     if (newUsername.trim() && newUsername.trim() !== user.username) {
       setIsSubmitting(true);
-      await updateUsername(newUsername.trim());
+      await toast.promise(updateUsername(newUsername.trim()), {
+        loading: "Salvando nome...",
+        success: "Nome de usuário salvo!",
+        error: "Erro ao salvar o nome.",
+      });
       setIsSubmitting(false);
     }
     setIsEditingUsername(false);

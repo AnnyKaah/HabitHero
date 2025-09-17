@@ -64,6 +64,23 @@ export const deleteHabit = (id: number): Promise<void> => {
   return apiFetch(`/habits/${id}`, { method: "DELETE" });
 };
 
+/**
+ * Marca um hábito como concluído para a data atual.
+ * O backend deve criar um HabitLog e retornar o estado atualizado.
+ * @param id - O ID do hábito a ser completado.
+ * @param date - A data da conclusão no formato 'YYYY-MM-DD'.
+ * @returns Uma promessa com o usuário e o hábito atualizados.
+ */
+export const completeHabit = (
+  id: number,
+  date: string
+): Promise<{ user: User; habit: Habit; [key: string]: any }> => {
+  return apiFetch(`/habits/${id}/complete`, {
+    method: "POST",
+    body: JSON.stringify({ date }),
+  });
+};
+
 export const updateUser = (
   userData: Partial<Pick<User, "username" | "avatarId">>
 ): Promise<User> => {

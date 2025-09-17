@@ -71,6 +71,19 @@ export const DashboardUI: React.FC<DashboardUIProps> = ({
 }) => {
   const constraintsRef = useRef(null);
 
+  // Nova função para orquestrar a conclusão do hábito e a gamificação
+  const handleComplete = async (habitId: number) => {
+    const habitBeforeUpdate = habits.find((h) => h.id === habitId);
+
+    // Primeiro, aguarda a conclusão do hábito (atualização de estado e API)
+    await onCompleteHabit(habitId, (updatedHabit) => {
+      // Esta função de callback agora é chamada de dentro do UserContext
+      // APÓS o sucesso da API, garantindo que temos os dados mais recentes.
+      gamification.runGamificationEffects(updatedHabit, habitBeforeUpdate);
+    });
+    // A notificação de toast já é tratada pelo hook useDashboardState
+  };
+
   return (
     <>
       {gamification.showConfetti && (
@@ -145,18 +158,15 @@ export const DashboardUI: React.FC<DashboardUIProps> = ({
                           <HabitCard
                             key={habit.id}
                             habit={habit}
-                            onComplete={(habitId) =>
-                              // Passamos a lógica de gamificação como um callback
-                              onCompleteHabit(
-                                habitId, // O ID do hábito a ser completado
-                                gamification.runGamificationEffects // A função de callback
-                              )
-                            }
+                            onComplete={handleComplete}
                             onDelete={onDeleteHabit}
                             isGlowing={
                               habit.id === gamification.justCompletedHabitId
                             }
                             completingHabitId={completingHabitId}
+                            justCompletedHabitId={
+                              gamification.justCompletedHabitId
+                            }
                           />
                         ))}
                       </AnimatePresence>

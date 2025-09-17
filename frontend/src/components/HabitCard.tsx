@@ -1,51 +1,46 @@
-import { motion, useMotionValue, useTransform, animate } from "framer-motion";
+import { motion } from "framer-motion";
 import { Trash2, Calendar, CheckCircle, Tag } from "lucide-react";
 import type { Habit } from "../types";
-import { useEffect } from "react";
-import { format } from "date-fns/format";
 import { habitCategories } from "../utils/habitCategories";
+import { format } from "date-fns";
+import { useUser } from "../pages/UserContext";
 
 interface HabitCardProps {
   habit: Habit;
-  // A função onComplete agora recebe a data da sub-missão
-  onComplete: (id: number) => void;
+  onComplete: (id: number) => Promise<void>;
   onDelete: (id: number) => void;
   isGlowing?: boolean;
   completingHabitId: number | null;
+  justCompletedHabitId: number | null;
 }
 
 export default function HabitCard({
-  habit,
+  habit: initialHabit,
   onComplete,
   onDelete,
   isGlowing,
   completingHabitId,
+  justCompletedHabitId,
 }: HabitCardProps) {
-  // Verifica se o hábito já foi completado hoje
-  const categoryInfo = habitCategories.find((c) => c.id === habit.category);
-  const categoryName = categoryInfo?.name || "Geral";
+  const {
+    state: { habits },
+  } = useUser();
+  // Garante que estamos sempre usando a versão mais atualizada do hábito do estado global.
+  const habit = habits.find((h) => h.id === initialHabit.id) || initialHabit;
+
+  // --- Lógica de Progresso Simplificada ---
+  // Calculamos o progresso diretamente aqui para garantir reatividade máxima.
+  const logs = habit.logs || [];
+  const completedDays = logs.filter((l) => l.completed).length;
 
   const todayStr = format(new Date(), "yyyy-MM-dd");
-  const wasCompletedToday = habit.logs?.some(
+  const wasCompletedToday = logs.some(
     (log) => log.date === todayStr && log.completed
   );
 
-  // Calcula o progresso da missão
-  const completedDays = habit.logs?.filter((l) => l.completed).length || 0;
-  const progressPercentage =
-    habit.duration > 0 ? (completedDays / habit.duration) * 100 : 0;
+  const categoryInfo = habitCategories.find((c) => c.id === habit.category);
+  const categoryName = categoryInfo?.name || "Geral";
 
-  // Animação para o contador de dias
-  const count = useMotionValue(0);
-  const rounded = useTransform(count, (latest) => Math.round(latest));
-
-  useEffect(() => {
-    const controls = animate(count, completedDays, {
-      duration: 0.8,
-      ease: "easeInOut",
-    });
-    return controls.stop;
-  }, [completedDays, count]);
   return (
     <motion.div
       layout
@@ -77,23 +72,16 @@ export default function HabitCard({
       </div>
 
       {/* Barra de Progresso da Missão */}
-      <div className="mb-4">
-        <div className="flex justify-between text-xs text-slate-400 mb-1">
-          <span>Progresso</span>
-          <span>
-            <motion.span>{rounded}</motion.span> / {habit.duration} dias
-          </span>
-        </div>
-        <div className="w-full bg-brand-dark rounded-full h-2.5 border border-brand-light-slate/50">
-          <motion.div
-            className={
-              progressPercentage > 0
-                ? "h-full rounded-full bg-gradient-to-r from-green-400 to-brand-cyan"
-                : "h-full rounded-full bg-slate-700"
-            }
-            animate={{ width: `${progressPercentage}%` }}
-            transition={{ duration: 0.8, ease: "easeInOut" }}
-          />
+      <div className="mb-4 space-y-2">
+        {/* Visualização de progresso ultra-simples com texto */}
+        <div className="text-center bg-brand-dark/50 p-3 rounded-lg border border-brand-light-slate/30">
+          <p className="text-sm text-slate-400">Progresso da Missão</p>
+          <p className="font-mono text-2xl font-bold text-white mt-1">
+            <span className="text-green-400">{completedDays}</span>
+            <span className="text-slate-500"> / </span>
+            <span>{habit.duration}</span>
+            <span className="text-lg text-slate-400"> dias</span>
+          </p>
         </div>
       </div>
 

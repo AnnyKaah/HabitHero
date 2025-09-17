@@ -11,7 +11,6 @@ import type { Habit, User } from "../types";
 import {
   getInitialData,
   addHabit as apiAddHabit,
-  editHabit as apiEditHabit,
   deleteHabit as apiDeleteHabit,
   completeHabit as apiCompleteHabit,
   updateUser as apiUpdateUser,
@@ -30,11 +29,8 @@ type Action =
   | { type: "FETCH_SUCCESS"; payload: { user: User; habits: Habit[] } }
   | { type: "FETCH_FAILURE"; payload: string }
   | { type: "ADD_HABIT_SUCCESS"; payload: Habit }
-  | {
-      type: "EDIT_HABIT_OPTIMISTIC";
-      payload: { id: number; updates: Partial<Habit> };
-    }
   | { type: "REVERT_HABITS"; payload: Habit[] }
+  | { type: "SET_OPTIMISTIC_HABITS"; payload: Habit[] } // Ação mais específica
   | { type: "DELETE_HABIT_OPTIMISTIC"; payload: number }
   | { type: "START_COMPLETE_HABIT"; payload: number } // Nova ação para iniciar
   | { type: "COMPLETE_HABIT_FAILURE" } // Nova ação para falha
@@ -69,14 +65,9 @@ const reducer = (state: State, action: Action): State => {
       return { ...state, isLoading: false, error: action.payload };
     case "ADD_HABIT_SUCCESS":
       return { ...state, habits: [...state.habits, action.payload] };
-    case "EDIT_HABIT_OPTIMISTIC":
-      return {
-        ...state,
-        habits: state.habits.map((h) =>
-          h.id === action.payload.id ? { ...h, ...action.payload.updates } : h
-        ),
-      };
     case "REVERT_HABITS":
+      return { ...state, habits: action.payload };
+    case "SET_OPTIMISTIC_HABITS":
       return { ...state, habits: action.payload };
     case "DELETE_HABIT_OPTIMISTIC":
       return {
@@ -129,12 +120,6 @@ interface UserContextType {
     description: string,
     category: string,
     duration: number
-  ) => Promise<void>;
-  editHabit: (
-    id: number,
-    updates: Partial<
-      Pick<Habit, "name" | "description" | "category" | "duration">
-    >
   ) => Promise<void>;
   deleteHabit: (id: number) => Promise<void>;
   updateUsername: (newUsername: string) => Promise<void>;
@@ -206,26 +191,6 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  const editHabit = async (
-    id: number,
-    updates: Partial<
-      Pick<Habit, "name" | "description" | "category" | "duration">
-    >
-  ) => {
-    const originalHabits = [...state.habits];
-    // Atualização otimista
-    dispatch({ type: "EDIT_HABIT_OPTIMISTIC", payload: { id, updates } });
-
-    try {
-      await apiEditHabit(id, updates);
-      toast.success("Hábito atualizado com sucesso!");
-    } catch (error) {
-      toast.error("Falha ao atualizar o hábito.");
-      // Reverte em caso de erro
-      dispatch({ type: "REVERT_HABITS", payload: originalHabits });
-    }
-  };
-
   const deleteHabit = async (id: number) => {
     const originalHabits = state.habits;
     dispatch({ type: "DELETE_HABIT_OPTIMISTIC", payload: id });
@@ -255,11 +220,31 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
     const originalUser = state.user ? { ...state.user } : null;
     const habitBeforeUpdate = originalHabits.find((h) => h.id === id);
 
-    const todayStr = new Date().toISOString().split("T")[0];
-    // Despacha a ação para a UI reagir IMEDIATAMENTE
+    // 1. Cria o estado otimista
+    const optimisticHabit = {
+      ...(habitBeforeUpdate as Habit),
+      logs: [
+        ...(habitBeforeUpdate?.logs || []),
+        {
+          id: Date.now(), // ID temporário
+          date: new Date().toISOString().split("T")[0],
+          completed: true,
+          habitId: id, // Adiciona o habitId para corresponder ao tipo HabitLog
+        },
+      ],
+    };
+    const optimisticHabits = originalHabits.map((h) =>
+      h.id === id ? optimisticHabit : h
+    );
+
+    // 2. Atualiza a UI imediatamente
     dispatch({ type: "START_COMPLETE_HABIT", payload: id });
+    dispatch({ type: "SET_OPTIMISTIC_HABITS", payload: optimisticHabits });
+
+    const todayStr = new Date().toISOString().split("T")[0];
 
     try {
+      // 3. Chama a API em segundo plano
       const {
         user: updatedUser,
         habit: updatedHabit,
@@ -267,12 +252,13 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
       } = await apiCompleteHabit(id, todayStr);
 
       // Sincroniza o estado local com a resposta definitiva do servidor
+      // O reducer garante a imutabilidade ao substituir o hábito
       dispatch({
         type: "COMPLETE_HABIT_SUCCESS",
         payload: { user: updatedUser, habit: updatedHabit },
       });
 
-      // Executa a lógica de gamificação APÓS o sucesso da API
+      // 4. Executa a lógica de gamificação APÓS o sucesso da API
       runGamificationLogic(updatedHabit, habitBeforeUpdate);
 
       const habitName = updatedHabit.name || "Missão";
@@ -286,21 +272,24 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
         toast.success(`'${habitName}' atualizada! +${rest.xpGained} XP`);
       }
     } catch (error) {
-      // Reverte o estado em caso de falha na API
+      // 5. Reverte o estado em caso de falha na API
       const errorMessage =
         error instanceof Error ? error.message : "Falha ao completar a missão.";
 
       // Verifica se o erro é sobre o hábito já ter sido concluído
       if (errorMessage.includes("já foi concluído")) {
         toast.error("Missão já concluída hoje.");
+        // Neste caso, a UI otimista já está correta, então não revertemos.
+        // Apenas garantimos que o estado de carregamento seja limpo.
       } else {
         toast.error(errorMessage);
+        // Reverte o estado para o original apenas se for um erro inesperado.
+        dispatch({
+          type: "REVERT_USER_AND_HABITS",
+          payload: { user: originalUser, habits: originalHabits },
+        });
       }
 
-      dispatch({
-        type: "REVERT_USER_AND_HABITS",
-        payload: { user: originalUser, habits: originalHabits },
-      });
       dispatch({ type: "COMPLETE_HABIT_FAILURE" });
     } finally {
       // Libera a trava independentemente do resultado
@@ -354,7 +343,6 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
     state,
     fetchData,
     addHabit,
-    editHabit,
     deleteHabit,
     updateUsername,
     updateAvatar,

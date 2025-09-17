@@ -8,8 +8,8 @@ import type { HabitCategory as CategorizedHabit } from "../hooks/useDashboardSta
 
 import AvatarSelectionModal from "./AvatarSelectionModal";
 import AchievementCard from "./AchievementCard";
-import UserStatsCard from "../pages/UserStatsCard";
-import HeroSummaryCard from "../pages/HeroSummaryCard";
+import UserStats from "./UserStats";
+import HeroSummaryCard from "./HeroSummaryCard";
 import { achievementsData } from "../pages/achievementsData";
 import XPChart from "./XPChart";
 import { ProfileHeader } from "./ProfileHeader";
@@ -95,10 +95,7 @@ export const ProfileUI: React.FC<ProfileUIProps> = ({
           <h2 className="text-2xl font-bold text-brand-cyan border-b-2 border-brand-cyan/20 pb-2">
             Estatísticas
           </h2>
-          <UserStatsCard
-            user={user}
-            categories={profileStats.categorizedHabits}
-          />
+          <UserStats user={user} categories={profileStats.categorizedHabits} />
         </div>
         <div className="md:col-span-2 lg:col-span-1 space-y-8">
           <XPChart habits={habits} />

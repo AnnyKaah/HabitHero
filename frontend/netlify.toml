@@ -1,0 +1,6 @@
+# Configuração para Single-Page Applications (SPA)
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200

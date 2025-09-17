@@ -1,6 +1,6 @@
 import React from "react";
 import { motion } from "framer-motion";
-import { User } from "../pages/Dashboard";
+import type { User } from "../types";
 import { Crown, Star } from "lucide-react";
 import { getAvatarUrl } from "../utils/avatar";
 import ImageWithSkeleton from "./ImageWithSkeleton";
