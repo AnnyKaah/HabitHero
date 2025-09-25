@@ -80,6 +80,7 @@ Desenvolver o HabitHero foi uma jornada repleta de desafios técnicos e aprendiz
 
 ---
 
+
 ## ⚙️ Como Executar o Projeto
 
 Para rodar o HabitHero em sua máquina local, siga os passos abaixo.
